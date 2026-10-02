@@ -368,17 +368,17 @@ function getSync(){return{url:localStorage.getItem('eurotrip_sb_url')||'',key:lo
 function saveSync(){localStorage.setItem('eurotrip_sb_url',$('sbUrl').value.trim().replace(/\/$/,''));localStorage.setItem('eurotrip_sb_key',$('sbKey').value.trim());$('syncStatus').textContent='Configuração salva neste navegador.'}
 async function testSync(){
  saveSync();let s=getSync();if(!s.url||!s.key){$('syncStatus').textContent='Preencha URL e anon key.';return}
- try{let r=await fetch(s.url+'/rest/v1/eurotrip_state?select=*',{headers:{apikey:s.key,Authorization:'Bearer '+s.key}});if(!r.ok)throw new Error(await r.text());$('syncStatus').textContent='Conectado com sucesso.';await syncPull()}
+ try{let r=await fetch(s.url+'/rest/v1/eurotrip_state?select=*',{headers:{apikey:s.key}});if(!r.ok)throw new Error(await r.text());$('syncStatus').textContent='Conectado com sucesso.';await syncPull()}
  catch(e){$('syncStatus').textContent='Erro: '+e.message}
 }
 async function syncPush(){
  let s=getSync();if(!s.url||!s.key)return;
  let payload={id:'shared',itinerary,bookings,expenses,checks,updated_at:new Date().toISOString()};
- await fetch(s.url+'/rest/v1/eurotrip_state',{method:'POST',headers:{apikey:s.key,Authorization:'Bearer '+s.key,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify(payload)})
+ await fetch(s.url+'/rest/v1/eurotrip_state',{method:'POST',headers:{apikey:s.key,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify(payload)})
 }
 async function syncPull(){
  let s=getSync();if(!s.url||!s.key)return;
- let r=await fetch(s.url+'/rest/v1/eurotrip_state?id=eq.shared&select=*',{headers:{apikey:s.key,Authorization:'Bearer '+s.key}});
+ let r=await fetch(s.url+'/rest/v1/eurotrip_state?id=eq.shared&select=*',{headers:{apikey:s.key}});
  if(!r.ok)return;let d=await r.json();let x=d[0];if(!x)return;
  if(x.itinerary)itinerary=x.itinerary;if(x.bookings)bookings=x.bookings;if(x.expenses)expenses=x.expenses;if(x.checks)checks=x.checks;
  localStorage.setItem('eurotrip_itinerary',JSON.stringify(itinerary));localStorage.setItem('eurotrip_bookings',JSON.stringify(bookings));localStorage.setItem('eurotrip_expenses',JSON.stringify(expenses));localStorage.setItem('eurotrip_checks',JSON.stringify(checks));
