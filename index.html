@@ -89,7 +89,7 @@ table{width:100%;border-collapse:collapse}th{font-size:11px;letter-spacing:.06em
   <button class="tab" data-view="reservas">Reservas</button>
   <button class="tab" data-view="financeiro">Financeiro</button>
   <button class="tab" data-view="checklistView">Checklist</button>
-  <button class="tab" data-view="config">Publicar & sincronizar</button>
+  <span id="syncBadge" class="pill" style="margin-left:auto;align-self:center">Conectando...</span>
 </nav>
 
 <section id="dashboard" class="view active">
@@ -177,31 +177,7 @@ table{width:100%;border-collapse:collapse}th{font-size:11px;letter-spacing:.06em
   </div>
 </section>
 
-<section id="config" class="view">
-  <div class="sectionTitle"><h2>Publicar & sincronizar</h2><p>Para vocês abrirem o mesmo link e editarem a mesma base.</p></div>
-  <div class="grid2">
-    <div class="card">
-      <h3>Conectar Supabase</h3>
-      <div class="syncbox">
-        <label>Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co">
-        <label style="margin-top:10px">anon/public key</label><textarea id="sbKey" rows="4"></textarea>
-        <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" onclick="saveSync()">Salvar</button><button class="secondary" onclick="testSync()">Testar conexão</button></div>
-        <div id="syncStatus" class="small" style="margin-top:8px"></div>
-      </div>
-    </div>
-    <div class="card">
-      <h3>Hospedagem</h3>
-      <p class="small">O projeto está pronto para Vercel, Netlify ou GitHub Pages. Para sincronizar de verdade entre vocês, use a versão publicada junto do Supabase.</p>
-      <div class="code">1. Criar projeto no Supabase
-2. Executar supabase.sql
-3. Publicar esta pasta
-4. Abrir o site publicado
-5. Colar Project URL + anon key
-6. Fazer o mesmo no outro dispositivo</div>
-      <p class="small"><b>Não salve dados sensíveis.</b> Nada de número completo de cartão, CVV, documentos ou senhas.</p>
-    </div>
-  </div>
-</section>
+
 </div>
 
 <div class="modal" id="itineraryModal"><div class="modalCard">
@@ -364,27 +340,23 @@ function deleteCheck(id){checks=checks.filter(c=>c.id!==id);persistAll();renderC
 
 function closeModal(id){$(id).classList.remove('show')}
 
-function getSync(){return{url:localStorage.getItem('eurotrip_sb_url')||'',key:localStorage.getItem('eurotrip_sb_key')||''}}
-function saveSync(){localStorage.setItem('eurotrip_sb_url',$('sbUrl').value.trim().replace(/\/$/,''));localStorage.setItem('eurotrip_sb_key',$('sbKey').value.trim());$('syncStatus').textContent='Configuração salva neste navegador.'}
-async function testSync(){
- saveSync();let s=getSync();if(!s.url||!s.key){$('syncStatus').textContent='Preencha URL e anon key.';return}
- try{let r=await fetch(s.url+'/rest/v1/eurotrip_state?select=*',{headers:{apikey:s.key}});if(!r.ok)throw new Error(await r.text());$('syncStatus').textContent='Conectado com sucesso.';await syncPull()}
- catch(e){$('syncStatus').textContent='Erro: '+e.message}
-}
+const SUPABASE_URL='https://amujxjlhffqeqamjvnpg.supabase.co';
+const SUPABASE_KEY='sb_publishable_5IJpVLvmTZk7dLq4GuIdjQ_xi4URnJQ';
+function getSync(){return{url:SUPABASE_URL,key:SUPABASE_KEY}}
+function setSyncStatus(text,ok=true){let el=$('syncBadge');if(el){el.textContent=text;el.style.opacity=ok?'1':'.65'}}
 async function syncPush(){
- let s=getSync();if(!s.url||!s.key)return;
- let payload={id:'shared',itinerary,bookings,expenses,checks,updated_at:new Date().toISOString()};
- await fetch(s.url+'/rest/v1/eurotrip_state',{method:'POST',headers:{apikey:s.key,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify(payload)})
+ let s=getSync();let payload={id:'shared',itinerary,bookings,expenses,checks,updated_at:new Date().toISOString()};
+ let r=await fetch(s.url+'/rest/v1/eurotrip_state',{method:'POST',headers:{apikey:s.key,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify(payload)});
+ if(!r.ok)throw new Error(await r.text());setSyncStatus('Sincronizado ✓');
 }
 async function syncPull(){
- let s=getSync();if(!s.url||!s.key)return;
- let r=await fetch(s.url+'/rest/v1/eurotrip_state?id=eq.shared&select=*',{headers:{apikey:s.key}});
- if(!r.ok)return;let d=await r.json();let x=d[0];if(!x)return;
+ let s=getSync();let r=await fetch(s.url+'/rest/v1/eurotrip_state?id=eq.shared&select=*',{headers:{apikey:s.key}});
+ if(!r.ok)throw new Error(await r.text());let d=await r.json();let x=d[0];if(!x){setSyncStatus('Sincronizado ✓');return}
  if(x.itinerary)itinerary=x.itinerary;if(x.bookings)bookings=x.bookings;if(x.expenses)expenses=x.expenses;if(x.checks)checks=x.checks;
  localStorage.setItem('eurotrip_itinerary',JSON.stringify(itinerary));localStorage.setItem('eurotrip_bookings',JSON.stringify(bookings));localStorage.setItem('eurotrip_expenses',JSON.stringify(expenses));localStorage.setItem('eurotrip_checks',JSON.stringify(checks));
- renderItinerary();renderBookings();renderExpenses();renderChecks()
+ renderItinerary();renderBookings();renderExpenses();renderChecks();setSyncStatus('Sincronizado ✓');
 }
-window.addEventListener('load',()=>{let s=getSync();$('sbUrl').value=s.url;$('sbKey').value=s.key;renderBudget();renderItinerary();renderBookings();renderExpenses();renderChecks();syncPull().catch(()=>{})});
+window.addEventListener('load',async()=>{renderBudget();renderItinerary();renderBookings();renderExpenses();renderChecks();try{await syncPull()}catch(e){setSyncStatus('Offline',false)}});
 </script>
 </body>
 </html>
